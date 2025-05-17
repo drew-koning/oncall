@@ -1,10 +1,12 @@
 [project]
 name = "oncall"
 version = "0.1.0"
-description = "Add your description here"
+description = "an application to manage on-call schedules for secondary teachers"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "python-config>=0.1.2",
     "wxpython>=4.2.3",
+    "polars>=0.18.0",
+    "fastexcel>=0.4.0",
 ]
