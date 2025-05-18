@@ -1,5 +1,6 @@
 # This file contains helper classes for managing teachers and their schedules.
 import wx.grid as gridlib
+import wx
 
 class Teacher:
     def __init__(self, name, period1, period2, period3, period4, oncalls=0, available=None, active=True, id=None):
@@ -140,6 +141,7 @@ class CustomGridTable(gridlib.GridTableBase):
         self.attr_bool = gridlib.GridCellAttr()
         self.attr_bool.SetEditor(OneClickBoolEditor())
         self.attr_bool.SetRenderer(gridlib.GridCellBoolRenderer())
+    
 
     def GetNumberRows(self):
         return len(self.data)

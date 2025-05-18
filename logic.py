@@ -5,6 +5,7 @@ import helper_classes as hc
 import sqlite3
 import pathlib
 import polars as pl
+from datetime import datetime, timedelta
 
 
 def main():
@@ -169,6 +170,31 @@ def save_absences_to_db(date: str, teacher_absences: list[int, str, bool, bool, 
     except Exception:
 
         return 1
+
+def schedule_oncalls(date: str) -> list:
+    with sqlite3.connect('oncall.db') as conn:
+        cursor = conn.cursor()
+        #obtain the unfilled absences for the date provided
+        try:
+            cursor.execute("SELECT * FROM unfilled_absences WHERE date = ?", (date,))
+        except sqlite3.IntegrityError:
+            return 1
+        unfilled = cursor.fetchall()
+        # get the list of available teachers (dropping those that have unfilled absences or already have 2 for the current week.)
+
+
+        #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls
+        #incorporate a limit of 2 per week.
+
+def current_week(day: str)-> list[str, str]:
+    date_day = datetime.strptime(day, "%Y%m%d")
+    weekend = 5- date_day.weekday()
+    if weekend <0: weekend = 6
+    weekstart = date_day.weekday()*-1-1
+    if weekstart == -7: weekstart=0
+    weekend = date_day+timedelta(weekend)
+    weekstart = date_day+timedelta(weekstart)
+    return [weekstart, weekend]
 
 
 

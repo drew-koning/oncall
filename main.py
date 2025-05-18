@@ -145,16 +145,14 @@ class DataViewPanel(wx.Panel):
         self.data_grid.SetRowLabelSize(0) 
         self.data_grid.EnableEditing(False)                    # Prevents editors from showing up
         self.data_grid.SetSelectionMode(grid.Grid.GridSelectionModes.GridSelectNone) 
-        for col in range(2, 7):
-            self.data_grid.SetColSize(col, 60)
 
         for col in range(2, 7):
+            self.data_grid.SetColSize(col, 60)
             self.data_grid.SetColFormatBool(col)
-            self.data_grid.SetCellEditor(0, col, grid.GridCellBoolEditor())
-            self.data_grid.SetCellRenderer(0, col, grid.GridCellBoolRenderer())
-            for row in range(1, len(data)):
+            for row in range(0, len(data)):
                 self.data_grid.SetCellEditor(row, col, grid.GridCellBoolEditor())
                 self.data_grid.SetCellRenderer(row, col, grid.GridCellBoolRenderer())
+                self.data_grid.SetCellAlignment(row, col, wx.ALIGN_CENTER_HORIZONTAL, wx.ALIGN_CENTER_VERTICAL)
 
         for row in range(self.data_grid.GetNumberRows()):
             color = wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW) if row % 2 == 0 else darken_colour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW), 0.8)
