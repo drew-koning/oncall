@@ -6,6 +6,7 @@ import sqlite3
 import pathlib
 import polars as pl
 from datetime import datetime, timedelta
+from typing import List, Union
 
 
 def main():
@@ -150,7 +151,7 @@ def load_schedule_from_file(file_path: str) -> None:
     return
 
 
-def save_absences_to_db(date: str, teacher_absences: list[int, str, bool, bool, bool, bool, bool]) -> int:
+def save_absences_to_db(date: str, teacher_absences: List[Union[str, int, bool]]) -> int:
     """Save the absences to the database."""
     try:
         with sqlite3.connect('oncall.db') as conn:
@@ -160,11 +161,13 @@ def save_absences_to_db(date: str, teacher_absences: list[int, str, bool, bool, 
                 cursor.execute("DELETE FROM unfilled_absences WHERE date = ?", (date,))
             except sqlite3.IntegrityError:
                 return 1
-            for teacher_id, teacher_name, period1, period2, period3, period4, allday in teacher_absences:
-                cursor.execute('''
-                    INSERT INTO unfilled_absences (date, teacher_id, period1, period2, period3, period4)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (date, teacher_id, period1, period2, period3, period4))
+            for absence in teacher_absences:
+                if isinstance(absence, (list, tuple)) and len(absence) == 7:
+                    teacher_id, _teacher_name, period1, period2, period3, period4, _allday = absence
+                    cursor.execute('''
+                        INSERT INTO unfilled_absences (date, teacher_id, period1, period2, period3, period4)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (date, teacher_id, period1, period2, period3, period4))
             conn.commit()
             return 0
     except Exception:
@@ -178,22 +181,25 @@ def schedule_oncalls(date: str) -> list:
         try:
             cursor.execute("SELECT * FROM unfilled_absences WHERE date = ?", (date,))
         except sqlite3.IntegrityError:
-            return 1
+            return []
         unfilled = cursor.fetchall()
         # get the list of available teachers (dropping those that have unfilled absences or already have 2 for the current week.)
-
+        return unfilled
 
         #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls
         #incorporate a limit of 2 per week.
 
-def current_week(day: str)-> list[str, str]:
+def current_week(day: str)-> list[str]:
+    """ Get the week range for the selected day (Sunday to Saturday) """
     date_day = datetime.strptime(day, "%Y%m%d")
     weekend = 5- date_day.weekday()
-    if weekend <0: weekend = 6
+    if weekend <0: 
+        weekend = 6
     weekstart = date_day.weekday()*-1-1
-    if weekstart == -7: weekstart=0
-    weekend = date_day+timedelta(weekend)
-    weekstart = date_day+timedelta(weekstart)
+    if weekstart == -7:
+        weekstart=0
+    weekend = (date_day+timedelta(weekend)).strftime("%Y%m%d")
+    weekstart = (date_day+timedelta(weekstart)).strftime("%Y%m%d")
     return [weekstart, weekend]
 
 

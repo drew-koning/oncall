@@ -1,6 +1,6 @@
 # This file contains helper classes for managing teachers and their schedules.
 import wx.grid as gridlib
-import wx
+
 
 class Teacher:
     def __init__(self, name, period1, period2, period3, period4, oncalls=0, available=None, active=True, id=None):
@@ -20,6 +20,8 @@ class Teacher:
     def find_available_period(self):
         """Find the first available period for the teacher."""
         periodList = [self.period1, self.period2, self.period3, self.period4]
+        # If there is only one None period, it means the teacher is full time and the one non-working period
+        # is the avaiable period
         if periodList.count(None) == 1:
             if not self.period1:
                 return 1
@@ -32,7 +34,10 @@ class Teacher:
             else:
                 return None
         elif periodList.count(None) > 1:
-            # Find the first non-None period
+            # When there is more than one non-working period, the teacher isn't full time
+            # Find the first non-None period and attach the aviable period to the other side 
+            # of the either AM or PM block of the day
+            workingPeriod=None
             for i in range(len(periodList)):
                 if periodList[i]:
                     workingPeriod = i

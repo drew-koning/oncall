@@ -11,27 +11,23 @@ class MyApp(wx.App):
         logic.initializeDB()
 
         self.InitFrame()
-    def InitFrame(self):
+    def InitFrame(self) -> None:
         self.frame = MainFrame(parent=None, title="Oncall App", pos=(100, 100))
         self.frame.Show()
-        self.frame.SetSize((800, 600))
         self.frame.Center()
         self.frame.Bind(wx.EVT_CLOSE, self.OnClose) 
-    def OnClose(self, event):
+    def OnClose(self, event) -> None:
         """Handle the close event."""
-        self.frame.Destroy()
-        self.frame = None
+        if self.frame:
+            self.frame.Destroy()
         self.ExitMainLoop()
     
 class MainFrame(wx.Frame):
     def __init__(self, parent, title, pos):
         super().__init__(parent=parent, title=title, pos=pos)
-        self.panel = None
         self.show_main_view()
 
     def show_main_view(self):
-        if self.panel:
-            self.panel.DestroyLater()
         self.panel = MainPanel(self)
         self.panel.Layout()
 
@@ -120,7 +116,7 @@ class MainPanel(wx.Panel):
 
 class DataViewWindow(wx.Frame):
     def __init__(self, parent, data):
-        super().__init__(parent, title="Unfilled Absences", size=(700, 500))
+        super().__init__(parent, title="Unfilled Absences", size=(wx.Size(700, 500)))
         panel = DataViewPanel(self, data)
         self.Center()
         panel.AutoLayout
@@ -144,7 +140,7 @@ class DataViewPanel(wx.Panel):
         self.data_grid.SetColSize(1, 150)
         self.data_grid.SetRowLabelSize(0) 
         self.data_grid.EnableEditing(False)                    # Prevents editors from showing up
-        self.data_grid.SetSelectionMode(grid.Grid.GridSelectionModes.GridSelectNone) 
+        self.data_grid.SetSelectionMode(grid.Grid.GridSelectionModes.GridSelectNone)  # type: ignore
 
         for col in range(2, 7):
             self.data_grid.SetColSize(col, 60)
@@ -194,10 +190,10 @@ class DataViewPanel(wx.Panel):
             if col == 6:
             # Toggle all toggle columns in this row
                 for toggle_col in range(2, 7):
-                    self.table.SetValue(row, toggle_col, new_val)
+                    self.table.SetValue(row, toggle_col, new_val) # type: ignore - SetValue needs to be a bool for clicking to work
             else:
                 # Just toggle the clicked column
-                self.table.SetValue(row, col, new_val)
+                self.table.SetValue(row, col, new_val) # type: ignore - SetValue needs to be a bool for clicking to work
             self.data_grid.ForceRefresh()  # Repaint the grid
         else:
             event.Skip()  # Let normal click behavior proceed
@@ -205,7 +201,7 @@ class DataViewPanel(wx.Panel):
 
 class OnCallWindow(wx.Frame):
     def __init__(self, parent, data):
-        super().__init__(parent, title="Schedule On Calls", size=(700, 500))
+        super().__init__(parent, title="Schedule On Calls", size=wx.Size(700, 500))
         panel = OnCallPanel(self, data)
         self.Center()
         panel.AutoLayout
@@ -218,9 +214,6 @@ class OnCallPanel(wx.Panel):
 
     def init_ui(self, data):
         pass
-
-        
-
 
 
 def darken_colour(colour, factor=0.9):
