@@ -5,7 +5,7 @@ import helper_classes as hc
 import sqlite3
 import pathlib
 import polars as pl
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List, Union
 
 
@@ -37,7 +37,6 @@ def initializeDB() -> None:
                 period2 TEXT,
                 period3 TEXT,
                 period4 TEXT,
-                oncalls INTEGER DEFAULT 0,
                 available INTEGER DEFAULT NULL,
                 active INTEGER DEFAULT 1
             )
@@ -48,6 +47,8 @@ def initializeDB() -> None:
                 id INTEGER PRIMARY KEY,
                 date TEXT NOT NULL,
                 teacher_id INTEGER,
+                year TEXT NOT NULL,
+                period TEXT NOT NULL,
                 FOREIGN KEY (teacher_id) REFERENCES teachers (id)
             )
         ''')
@@ -82,8 +83,7 @@ def load_teacher_list_from_db() -> hc.TeacherList:
                 period1=row[2],
                 period2=row[3],
                 period3=row[4],
-                period4=row[5],
-                oncalls=row[6]
+                period4=row[5]
             )
             teacher_list.add_teacher(teacher)
     return teacher_list
@@ -144,9 +144,9 @@ def load_schedule_from_file(file_path: str) -> None:
                     period4=row[5]
                 )
                 cursor.execute('''
-                    INSERT INTO teachers (teacher_name, period1, period2, period3, period4)
-                    VALUES (?, ?, ?, ?, ?)
-                ''', (teacher.name, teacher.period1, teacher.period2, teacher.period3, teacher.period4))
+                    INSERT INTO teachers (teacher_name, period1, period2, period3, period4, available)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (teacher.name, teacher.period1, teacher.period2, teacher.period3, teacher.period4, teacher.find_available_period()))
         conn.commit()
     return
 
@@ -175,6 +175,9 @@ def save_absences_to_db(date: str, teacher_absences: List[Union[str, int, bool]]
         return 1
 
 def schedule_oncalls(date: str) -> list:
+    """ with the provided date, get the list of unfilled absences that require on call coverage, apply teachers to the required on calls"""
+    year = get_school_year(date)
+    oncalls = hc.OnCallSchedule()
     with sqlite3.connect('oncall.db') as conn:
         cursor = conn.cursor()
         #obtain the unfilled absences for the date provided
@@ -184,10 +187,54 @@ def schedule_oncalls(date: str) -> list:
             return []
         unfilled = cursor.fetchall()
         # get the list of available teachers (dropping those that have unfilled absences or already have 2 for the current week.)
-        return unfilled
+        available_teachers = get_available_teachers(date)
+        #TODO get list of teachers who already have 2 (or more) on calls for the week.
 
         #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls
+        for date, id, period1, period2, period3, period4 in unfilled:
+            if period1:
+                pass
+            if period2:
+                pass
+            if period3:
+                pass
+            if period4:
+                pass
+
+
         #incorporate a limit of 2 per week.
+        return []
+
+def get_available_teachers(date: str) -> List[str]:
+    """ Get a list of teachers from the database who for the current day, don't have an absence"""
+    with sqlite3.connect('oncall.db') as conn:
+        cursor = conn.cursor()
+        statement="""
+        SELECT 
+          * 
+        FROM 
+          teachers 
+        WHERE 
+          teacher_id NOT IN (
+            SELECT 
+              teacher_id 
+            FROM 
+              unfilled_absences 
+            WHERE 
+              date = ?
+            AND
+              period1 = 1
+            OR
+              period2 = 1
+            OR 
+              period3 = 1
+            OR 
+              period4 =1
+          )"""
+        cursor.execute(statement, (date,))
+        data = cursor.fetchall()
+    return data
+
 
 def current_week(day: str)-> list[str]:
     """ Get the week range for the selected day (Sunday to Saturday) """
@@ -202,9 +249,22 @@ def current_week(day: str)-> list[str]:
     weekstart = (date_day+timedelta(weekstart)).strftime("%Y%m%d")
     return [weekstart, weekend]
 
+def get_school_year(given_date: str) -> str:
+    """
+    Returns the school year in the format "YYYY/YYYY" for a given date.
+    The school year runs from August 20 to August 19 of the next year.
+    """
+    if len(given_date) != 8:
+        raise ValueError("Date not provided in the proper format")
+    y, m, d = given_date[:4], given_date[4:6], given_date[6:]
+    try:
+        newdate = date(int(y), int(m), int(d))
+    except Exception:
+        raise ValueError("Date not provided int he proper format")
+    if newdate >= date(newdate.year, 8, 20):
+        start_year = newdate.year
+    else:
+        start_year = newdate.year - 1
 
-
-
-if __name__ == "__main__":
-    pass
-
+    end_year = start_year + 1
+    return f"{start_year}/{end_year}"

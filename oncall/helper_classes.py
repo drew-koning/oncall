@@ -3,6 +3,7 @@ import wx.grid as gridlib
 
 
 class Teacher:
+    """ Class to manage instances of a teacher in the context of creating the on call schedule"""
     def __init__(self, name, period1, period2, period3, period4, oncalls=0, available=None, active=True, id=None):
         self.id = id
         self.name = name
@@ -99,6 +100,7 @@ class TeacherList:
     def __iter__(self):
         self.index = 0
         return self
+    
     def __next__(self):
         if self.index < len(self.teachers):
             teacher = self.teachers[self.index]
@@ -106,19 +108,47 @@ class TeacherList:
             return teacher
         else:
             raise StopIteration
+        
+class OnCall:
+    def __init__(self, teacher_id: int, date: str, year: str, period:str, half:str) -> None:
+        self.teacher_id = teacher_id
+        self.date = date
+        self.year = year
+        self.period = period
+        self.half = half
+    
+    def __eq__(self, other):
+        if not isinstance(other, OnCall):
+            return NotImplemented
+        return (
+            self.teacher_id == other.teacher_id and
+            self.date == other.date and
+            self.period == other.period and
+            self.half == other.half
+        )
+
+    def __repr__(self):
+        return f"OnCall({self.teacher_id}, {self.date}, {self.period}, {self.half})"
+        
 
 class OnCallSchedule:
     def __init__(self):
-        self.schedule = {}
+        self.schedule = []
 
-    def add_oncall(self, date, teacher):
-        if date not in self.schedule:
-            self.schedule[date] = []
-        self.schedule[date].append(teacher)
 
-    def remove_oncall(self, date, teacher):
-        if date in self.schedule and teacher in self.schedule[date]:
-            self.schedule[date].remove(teacher)
+    def add_oncall(self, oncall: OnCall) -> int:
+        if oncall not in self.schedule:
+            self.schedule.append(oncall)
+            return 0
+        return 1
+
+    def remove_oncall(self, oncall: OnCall) -> int:
+        try:
+            self.schedule.remove(oncall)
+            return 0
+        except ValueError:
+            return 1
+    
 
     def get_schedule(self):
         return self.schedule
