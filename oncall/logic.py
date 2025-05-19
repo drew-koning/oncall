@@ -1,22 +1,9 @@
 # Import necessary modules
-import oncall.helper_classes as hc
 import sqlite3
 import pathlib
 import polars as pl
 from datetime import datetime, timedelta, date
 from typing import List, Union
-
-
-def main():
-    """Entry point for the OnCall program."""
-    # Initialize the database
-    initializeDB()
-    # Initialize the teacher list and populate from the database
-    teacher_list = load_teacher_list_from_db()
-    print("Teachers loaded from database:")
-    if not teacher_list.get_teachers():
-        print("No teachers found in the database.")
-
 
 
 def initializeDB() -> None:
@@ -67,15 +54,16 @@ def initializeDB() -> None:
         conn.commit()
         conn.close()
 
-def load_teacher_list_from_db() -> hc.TeacherList:
+def load_teacher_list_from_db():
     """Load the teacher list from the SQLite database."""
+    from oncall.helper_classes import TeacherList, Teacher
     with sqlite3.connect('oncall.db') as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM teachers')
         rows = cursor.fetchall()
-        teacher_list = hc.TeacherList()
+        teacher_list = TeacherList()
         for row in rows:
-            teacher = hc.Teacher(
+            teacher = Teacher(
                 id=row[0],
                 name=row[1],
                 period1=row[2],
@@ -120,6 +108,7 @@ def get_absences_from_db(date):
 
 def load_schedule_from_file(file_path: str) -> None:
     """Load a schedule from a file."""
+    from oncall.helper_classes import Teacher
     schedule = pl.read_excel(file_path)
     with sqlite3.connect('oncall.db') as conn:
         cursor = conn.cursor()
@@ -134,7 +123,7 @@ def load_schedule_from_file(file_path: str) -> None:
             # Assuming the schedule has columns 'name', 'period1', 'period2', 'lunch', 'period3', 'period4'
             if row[0] and row[0] not in existing_teachers:
                 # Create a new teacher object and add it to the database
-                teacher = hc.Teacher(
+                teacher = Teacher(
                     name=row[0],
                     period1=row[1],
                     period2=row[2],
@@ -172,39 +161,6 @@ def save_absences_to_db(date: str, teacher_absences: List[Union[str, int, bool]]
 
         return 1
 
-def schedule_oncalls(date: str) -> list:
-    """ with the provided date, get the list of unfilled absences that require on call coverage, apply teachers to the required on calls"""
-    year = get_school_year(date)
-    oncalls = hc.OnCallSchedule()
-    with sqlite3.connect('oncall.db') as conn:
-        cursor = conn.cursor()
-        #obtain the unfilled absences for the date provided
-        try:
-            cursor.execute("SELECT * FROM unfilled_absences WHERE date = ?", (date,))
-        except sqlite3.IntegrityError:
-            return []
-        unfilled = cursor.fetchall()
-        # get the list of available teachers (dropping those that have unfilled absences or already have 2 for the current week.)
-        available_teachers = get_available_teachers(date)
-        #TODO get list of teachers who already have 2 (or more) on calls for the week.
-
-        #split available teachers into 4 lists, one list for each period of the available teachers
-
-
-        #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls then 
-        for date, id, period1, period2, period3, period4 in unfilled:
-            if period1:
-                pass
-            if period2:
-                pass
-            if period3:
-                pass
-            if period4:
-                pass
-
-
-        #incorporate a limit of 2 per week.
-        return []
 
 def get_available_teachers(date: str) -> List[str]:
     """ Get a list of teachers from the database who for the current day, don't have an absence"""
@@ -270,10 +226,21 @@ def get_school_year(given_date: str) -> str:
     end_year = start_year + 1
     return f"{start_year}/{end_year}"
 
-def split_available_teachers(available_teachers: List) -> List[List[Union[str, int]]]:
+def split_available_teachers(available_teachers: list) -> list[list]:
     """ Separate teachers into groups by which period they are available"""
     period1 = [x for x in available_teachers if x[6]==1]
     period2 = [x for x in available_teachers if x[6]==2]
     period3 = [x for x in available_teachers if x[6]==3]
     period4 = [x for x in available_teachers if x[6]==4]
     return [period1, period2, period3, period4]
+
+def get_unfilled_absences(date: str) -> list: 
+    """ Returns a list of all unfilled absences listed for the current day"""  
+    with sqlite3.connect('oncall.db') as conn:
+        cursor = conn.cursor()
+        #obtain the unfilled absences for the date provided
+        try:
+            cursor.execute("SELECT * FROM unfilled_absences WHERE date = ?", (date,))
+        except sqlite3.IntegrityError:
+            return []
+        return cursor.fetchall()

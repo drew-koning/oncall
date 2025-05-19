@@ -24,7 +24,6 @@ def available_teachers():
     ]
 
 
-
 def test_split_available_teachers(available_teachers):
     result = logic.split_available_teachers(available_teachers)
     assert result[0] == [[2,'teacher2','','TMJ2OE-02 (T-101) ','TMJ3/4CE-02 (T-101)','TIJ1OE-02  (T-101)  ',1,1],

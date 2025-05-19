@@ -1,5 +1,6 @@
 # This file contains helper classes for managing teachers and their schedules.
 import wx.grid as gridlib
+from oncall import logic
 
 
 class Teacher:
@@ -11,7 +12,6 @@ class Teacher:
         self.period2 = period2
         self.period3 = period3
         self.period4 = period4
-        self.oncalls = oncalls
         if available:
             self.available = available
         else:
@@ -132,8 +132,12 @@ class OnCall:
         
 
 class OnCallSchedule:
-    def __init__(self):
+    def __init__(self, date: str):
         self.schedule = []
+        self.date = date
+        self.year = logic.get_school_year(date)
+        self.available_teachers = logic.split_available_teachers(logic.get_available_teachers(date))
+        self.unfilled_absences = logic.get_unfilled_absences(date)
 
 
     def add_oncall(self, oncall: OnCall) -> int:
@@ -149,6 +153,28 @@ class OnCallSchedule:
         except ValueError:
             return 1
     
+    def schedule_oncalls(self) -> int:
+        for date, id, period1, period2, period3, period4 in self.unfilled_absences:
+            if period1:
+                self.apply_oncall(1, "1st")
+                self.apply_oncall(1, "2nd")
+            if period2:
+                self.apply_oncall(2, "1st")
+                self.apply_oncall(2, "2nd")
+            if period3:
+                self.apply_oncall(3, "1st")
+                self.apply_oncall(3, "2nd")
+            if period4:
+                self.apply_oncall(4, "1st")
+                self.apply_oncall(4, "2nd")
+        return 0
+    
+    def apply_oncall(self, period, half):
+        if len(self.available_teachers[period-1]) >0:
+            teacher = self.available_teachers[period-1].pop(0)
+            self.add_oncall(OnCall(teacher[0], self.date, self.year, f"period{period}", half))
+            return 0
+        return 1
 
     def get_schedule(self):
         return self.schedule
