@@ -1,8 +1,8 @@
-import logic
+import oncall.logic as logic
 import wx
 import wx.grid as grid
 from datetime import datetime
-from helper_classes import CustomGridTable
+from oncall.helper_classes import CustomGridTable
 
 
 class MyApp(wx.App):

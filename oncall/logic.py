@@ -1,7 +1,5 @@
-"""OnCall is a tool for tracking and scheduling secondary Teachers On Call schedules and allotments"""
-
 # Import necessary modules
-import helper_classes as hc
+import oncall.helper_classes as hc
 import sqlite3
 import pathlib
 import polars as pl
@@ -190,7 +188,10 @@ def schedule_oncalls(date: str) -> list:
         available_teachers = get_available_teachers(date)
         #TODO get list of teachers who already have 2 (or more) on calls for the week.
 
-        #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls
+        #split available teachers into 4 lists, one list for each period of the available teachers
+
+
+        #for each unfilled absence, per period allocate a teacher to each half, based on fewest number of oncalls then 
         for date, id, period1, period2, period3, period4 in unfilled:
             if period1:
                 pass
@@ -268,3 +269,11 @@ def get_school_year(given_date: str) -> str:
 
     end_year = start_year + 1
     return f"{start_year}/{end_year}"
+
+def split_available_teachers(available_teachers: List) -> List[List[Union[str, int]]]:
+    """ Separate teachers into groups by which period they are available"""
+    period1 = [x for x in available_teachers if x[6]==1]
+    period2 = [x for x in available_teachers if x[6]==2]
+    period3 = [x for x in available_teachers if x[6]==3]
+    period4 = [x for x in available_teachers if x[6]==4]
+    return [period1, period2, period3, period4]
