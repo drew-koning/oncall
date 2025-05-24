@@ -4,8 +4,20 @@ from oncall import logic
 
 
 class Teacher:
-    """ Class to manage instances of a teacher in the context of creating the on call schedule"""
-    def __init__(self, name, period1, period2, period3, period4, oncalls=0, available=None, active=True, id=None):
+    """Class to manage instances of a teacher in the context of creating the on call schedule"""
+
+    def __init__(
+        self,
+        name,
+        period1,
+        period2,
+        period3,
+        period4,
+        oncalls=0,
+        available=None,
+        active=True,
+        id=None,
+    ):
         self.id = id
         self.name = name
         self.period1 = period1
@@ -36,9 +48,9 @@ class Teacher:
                 return None
         elif periodList.count(None) > 1:
             # When there is more than one non-working period, the teacher isn't full time
-            # Find the first non-None period and attach the aviable period to the other side 
+            # Find the first non-None period and attach the aviable period to the other side
             # of the either AM or PM block of the day
-            workingPeriod=None
+            workingPeriod = None
             for i in range(len(periodList)):
                 if periodList[i]:
                     workingPeriod = i
@@ -63,7 +75,7 @@ class Teacher:
                 return 1
             elif workingPeriod == 3 and not self.period3:
                 return 3
-            elif workingPeriod == 3 and not self.period1:       
+            elif workingPeriod == 3 and not self.period1:
                 return 1
             else:
                 return None
@@ -81,7 +93,7 @@ class Teacher:
 
     def __repr__(self):
         return f"Teacher(name={self.name}: Free period={self.available})"
-    
+
 
 class TeacherList:
     def __init__(self):
@@ -96,11 +108,11 @@ class TeacherList:
 
     def get_teachers(self):
         return self.teachers
-    
+
     def __iter__(self):
         self.index = 0
         return self
-    
+
     def __next__(self):
         if self.index < len(self.teachers):
             teacher = self.teachers[self.index]
@@ -108,37 +120,41 @@ class TeacherList:
             return teacher
         else:
             raise StopIteration
-        
+
+
 class OnCall:
-    def __init__(self, teacher_id: int, date: str, year: str, period:str, half:str) -> None:
+    def __init__(
+        self, teacher_id: int, date: str, year: str, period: str, half: str
+    ) -> None:
         self.teacher_id = teacher_id
         self.date = date
         self.year = year
         self.period = period
         self.half = half
-    
+
     def __eq__(self, other):
         if not isinstance(other, OnCall):
             return NotImplemented
         return (
-            self.teacher_id == other.teacher_id and
-            self.date == other.date and
-            self.period == other.period and
-            self.half == other.half
+            self.teacher_id == other.teacher_id
+            and self.date == other.date
+            and self.period == other.period
+            and self.half == other.half
         )
 
     def __repr__(self):
         return f"OnCall({self.teacher_id}, {self.date}, {self.period}, {self.half})"
-        
+
 
 class OnCallSchedule:
     def __init__(self, date: str):
         self.schedule = []
         self.date = date
         self.year = logic.get_school_year(date)
-        self.available_teachers = logic.split_available_teachers(logic.get_available_teachers(date))
+        self.available_teachers = logic.split_available_teachers(
+            logic.get_available_teachers(date)
+        )
         self.unfilled_absences = logic.get_unfilled_absences(date)
-
 
     def add_oncall(self, oncall: OnCall) -> int:
         if oncall not in self.schedule:
@@ -152,9 +168,17 @@ class OnCallSchedule:
             return 0
         except ValueError:
             return 1
-    
+
     def schedule_oncalls(self) -> int:
-        for id, date, teacher_id, period1, period2, period3, period4 in self.unfilled_absences:
+        for (
+            id,
+            date,
+            teacher_id,
+            period1,
+            period2,
+            period3,
+            period4,
+        ) in self.unfilled_absences:
             if period1:
                 self.apply_oncall(1, "1st")
                 self.apply_oncall(1, "2nd")
@@ -168,11 +192,13 @@ class OnCallSchedule:
                 self.apply_oncall(4, "1st")
                 self.apply_oncall(4, "2nd")
         return 0
-    
+
     def apply_oncall(self, period, half):
-        if len(self.available_teachers[period-1]) >0:
-            teacher = self.available_teachers[period-1].pop(0)
-            self.add_oncall(OnCall(teacher[0], self.date, self.year, f"period{period}", half))
+        if len(self.available_teachers[period - 1]) > 0:
+            teacher = self.available_teachers[period - 1].pop(0)
+            self.add_oncall(
+                OnCall(teacher[0], self.date, self.year, f"period{period}", half)
+            )
             return 0
         return 1
 
@@ -180,7 +206,7 @@ class OnCallSchedule:
         """Get the schedule in a format suitable for display."""
         # Convert the schedule to a list of lists for display
         return [[x.teacher_id, x.date, x.period, x.half] for x in self.schedule]
-    
+
 
 class UnfilledAbsences:
     def __init__(self):
@@ -194,17 +220,24 @@ class UnfilledAbsences:
 
     def get_absences(self):
         return self.absences
-    
+
 
 class CustomGridTable(gridlib.GridTableBase):
     def __init__(self, data):
         super().__init__()
         self.data = data
-        self.col_labels = ["ID", "Name", "Period 1", "Period 2", "Period 3", "Period 4", "All Day"]
+        self.col_labels = [
+            "ID",
+            "Name",
+            "Period 1",
+            "Period 2",
+            "Period 3",
+            "Period 4",
+            "All Day",
+        ]
         self.attr_bool = gridlib.GridCellAttr()
         self.attr_bool.SetEditor(OneClickBoolEditor())
         self.attr_bool.SetRenderer(gridlib.GridCellBoolRenderer())
-    
 
     def GetNumberRows(self):
         return len(self.data)
@@ -214,7 +247,7 @@ class CustomGridTable(gridlib.GridTableBase):
 
     def GetValue(self, row, col):
         val = self.data[row][col]
-        return val 
+        return val
 
     def SetValue(self, row, col, value):
         self.data[row][col] = value
@@ -232,7 +265,8 @@ class CustomGridTable(gridlib.GridTableBase):
 
     def CanSetValueAs(self, row, col, typeName):
         return self.CanGetValueAs(row, col, typeName)
-    
+
+
 class OneClickBoolEditor(gridlib.GridCellBoolEditor):
     def BeginEdit(self, row, col, grid):
         super().BeginEdit(row, col, grid)
