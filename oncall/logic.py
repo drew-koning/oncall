@@ -244,3 +244,17 @@ def get_unfilled_absences(date: str) -> list:
         except sqlite3.IntegrityError:
             return []
         return cursor.fetchall()
+    
+def add_names(data:list, lookup: dict) -> list:
+    """ Add the names to the data list"""
+    for row in data:
+        row[0] = lookup.get(row[0])  # Replace teacher_id with teacher_name
+    return data
+
+def get_teacher_lookup() -> dict:
+    """ Get a dictionary of teacher names and their ids"""
+    with sqlite3.connect('oncall.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT teacher_id, teacher_name FROM teachers")
+        data = cursor.fetchall()
+    return {row[0]: row[1] for row in data}

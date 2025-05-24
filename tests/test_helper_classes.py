@@ -16,8 +16,8 @@ mock_teachers = [
 ]
 
 mock_absences = [
-    ("2025-05-26", 1, 1, 0, 0, 0),  # period1 only
-    ("2025-05-26", 2, 0, 1, 0, 0),  # period2 only
+    (1, "2025-05-26", 1, 1, 0, 0, 0),  # period1 only
+    (2, "2025-05-26", 2, 0, 1, 0, 0),  # period2 only
 ]
 
 @pytest.fixture
@@ -36,14 +36,14 @@ def test_schedule_oncalls(mock_year, mock_teachers_func, mock_absences_func):
     instance = helper_classes.OnCallSchedule("20250526")
     instance.schedule_oncalls()
     assert instance.unfilled_absences == [
-    ("2025-05-26", 1, 1, 0, 0, 0),  # period1 only
-    ("2025-05-26", 2, 0, 1, 0, 0),  # period2 only
+    (1,"2025-05-26", 1, 1, 0, 0, 0),  # period1 only
+    (2, "2025-05-26", 2, 0, 1, 0, 0),  # period2 only
 ]
     assert instance.get_schedule() == [
-        helper_classes.OnCall(2, '20250526', '2024/2025', 'period1', '1st'), 
-        helper_classes.OnCall(6, '20250526', '2024/2025', 'period1', '2nd'), 
-        helper_classes.OnCall(7, '20250526', '2024/2025', 'period2', '1st'), 
-        helper_classes.OnCall(8, '20250526', '2024/2025', 'period2', '2nd')
+        [2, '20250526', 'period1', '1st'], 
+        [6, '20250526', 'period1', '2nd'], 
+        [7, '20250526', 'period2', '1st'], 
+        [8, '20250526', 'period2', '2nd']
 ]
 
 def test_add_oncall(oncall_schedule_instance: helper_classes.OnCallSchedule, oncall_instance: helper_classes.OnCall):

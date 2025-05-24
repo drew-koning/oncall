@@ -2,7 +2,7 @@ import oncall.logic as logic
 import wx
 import wx.grid as grid
 from datetime import datetime
-from oncall.helper_classes import CustomGridTable
+from oncall.helper_classes import CustomGridTable, OnCallSchedule
 
 
 class MyApp(wx.App):
@@ -12,7 +12,7 @@ class MyApp(wx.App):
 
         self.InitFrame()
     def InitFrame(self) -> None:
-        self.frame = MainFrame(parent=None, title="Oncall App", pos=(100, 100))
+        self.frame = MainFrame(parent=None, title="Oncall App", pos=(100, 100), )
         self.frame.Show()
         self.frame.Center()
         self.frame.Bind(wx.EVT_CLOSE, self.OnClose) 
@@ -25,6 +25,7 @@ class MyApp(wx.App):
 class MainFrame(wx.Frame):
     def __init__(self, parent, title, pos):
         super().__init__(parent=parent, title=title, pos=pos)
+        self.Size = wx.Size(800, 600)  # type: ignore
         self.show_main_view()
 
     def show_main_view(self):
@@ -110,7 +111,8 @@ class MainPanel(wx.Panel):
         data_window.Show()
 
     def schedule_oncalls(self, event):
-        pass
+        oncall_window = OnCallWindow(self)
+        oncall_window.Show()
 
 
 
@@ -163,7 +165,7 @@ class DataViewPanel(wx.Panel):
         btn_save.Bind(wx.EVT_BUTTON, self.save)
         btn_cancel = wx.Button(self, label="Cancel")
         btn_cancel.Bind(wx.EVT_BUTTON, self.cancel)
-        btn_sizer.Add(btn_save, 0, wx.RIGHT, 10)
+        btn_sizer.Add(btn_save)
         btn_sizer.Add(btn_cancel)
 
         sizer.Add(self.data_grid, 1, wx.EXPAND | wx.ALL, 10)
@@ -200,20 +202,32 @@ class DataViewPanel(wx.Panel):
 
 
 class OnCallWindow(wx.Frame):
-    def __init__(self, parent, data):
+    def __init__(self, parent):
         super().__init__(parent, title="Schedule On Calls", size=wx.Size(700, 500))
-        panel = OnCallPanel(self, data)
+        panel = OnCallPanel(self)
         self.Center()
         panel.AutoLayout
 
 class OnCallPanel(wx.Panel):
-    def __init__(self, parent, data):
+    def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-        self.init_ui(data)
+        self.init_ui()
 
-    def init_ui(self, data):
-        pass
+    def init_ui(self):
+        date = datetime.today().strftime("%Y%m%d")
+        self.schedule = OnCallSchedule(date)
+        self.schedule.schedule_oncalls()
+        lookup=logic.get_teacher_lookup()
+        data = logic.add_names(self.schedule.get_schedule(), lookup)
+        data_grid = grid.Grid(self)
+        table = CustomGridTable(data)
+        data_grid.SetTable(table, takeOwnership=True)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(data_grid, 1, wx.EXPAND | wx.ALL, 10)
+        self.SetSizer(sizer)
+        
 
 
 def darken_colour(colour, factor=0.9):

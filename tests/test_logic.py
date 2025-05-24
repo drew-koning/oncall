@@ -36,7 +36,30 @@ def test_split_available_teachers(available_teachers):
                          [5,'teacher5','ST/GP/ID/RCR-05 (I-102)  ','ST/GP/ID/RCR-06 (I-102)  ','PAF1/2/3/4OE-02 (GYM)','',4,1],]
 
 
+mock_teachers = {
+    1:'teacher1',
+    2:'teacher2',
+    3:'teacher3',
+    4:'teacher4',
+    5:'teacher5',
+    6:'teacher6',
+    7:'teacher7',
+    8:'teacher8',
+    9:'teacher9',
+}
 
+def test_add_names():
+    data = [
+        [1, '20231016', 1, 1, 0, 0, 0],
+        [2, '20231016', 2, 0, 1, 0, 0],
+        [3, '20231016', 3, 0, 0, 1, 0],
+        [4, '20231016', 4, 0, 0, 0, 1],
+    ]
+    result = logic.add_names(data, mock_teachers)
+    assert result[0][0] == 'teacher1'
+    assert result[1][0] == 'teacher2'
+    assert result[2][0] == 'teacher3'
+    assert result[3][0] == 'teacher4'
 
 
 

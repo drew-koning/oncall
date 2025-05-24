@@ -154,7 +154,7 @@ class OnCallSchedule:
             return 1
     
     def schedule_oncalls(self) -> int:
-        for date, id, period1, period2, period3, period4 in self.unfilled_absences:
+        for id, date, teacher_id, period1, period2, period3, period4 in self.unfilled_absences:
             if period1:
                 self.apply_oncall(1, "1st")
                 self.apply_oncall(1, "2nd")
@@ -176,8 +176,10 @@ class OnCallSchedule:
             return 0
         return 1
 
-    def get_schedule(self):
-        return self.schedule
+    def get_schedule(self) -> list:
+        """Get the schedule in a format suitable for display."""
+        # Convert the schedule to a list of lists for display
+        return [[x.teacher_id, x.date, x.period, x.half] for x in self.schedule]
     
 
 class UnfilledAbsences:
