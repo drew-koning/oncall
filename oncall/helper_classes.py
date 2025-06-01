@@ -9,10 +9,10 @@ class Teacher:
     def __init__(
         self,
         name,
-        period1,
-        period2,
-        period3,
-        period4,
+        period1=None,
+        period2=None,
+        period3=None,
+        period4=None,
         oncalls=0,
         available=None,
         active=True,
@@ -22,6 +22,7 @@ class Teacher:
         self.name = name
         self.period1 = period1
         self.period2 = period2
+
         self.period3 = period3
         self.period4 = period4
         if available:
@@ -205,7 +206,7 @@ class OnCallSchedule:
     def get_schedule(self) -> list:
         """Get the schedule in a format suitable for display."""
         # Convert the schedule to a list of lists for display
-        return [[x.teacher_id, x.date, x.period, x.half] for x in self.schedule]
+        return [[x.teacher_id, x.year, x.date, x.period, x.half] for x in self.schedule]
 
 
 class UnfilledAbsences:

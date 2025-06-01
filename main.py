@@ -1,14 +1,15 @@
 import oncall.logic as logic
+import oncall.db_config as db_config
 import wx
 import wx.grid as grid
 from datetime import datetime
-from oncall.helper_classes import CustomGridTable, OnCallSchedule
+from oncall.helper_classes import CustomGridTable, OnCallSchedule, Teacher
 
 
 class MyApp(wx.App):
     def __init__(self):
         super().__init__(clearSigInt=True)
-        logic.initializeDB()
+        db_config.initializeDB()
 
         self.InitFrame()
 
@@ -32,7 +33,7 @@ class MyApp(wx.App):
 class MainFrame(wx.Frame):
     def __init__(self, parent, title, pos):
         super().__init__(parent=parent, title=title, pos=pos)
-        self.Size = wx.Size(800, 600)  # type: ignore
+        self.SetSize(wx.Size(800, 600))  
         self.show_main_view()
 
     def show_main_view(self):
@@ -40,7 +41,7 @@ class MainFrame(wx.Frame):
         self.panel.Layout()
 
     def show_data_view(self):
-        data = logic.get_absences_from_db(datetime.today())
+        data = logic.get_absences_from_db(datetime.today().strftime("%Y%m%d"))
         if not data:
             wx.MessageBox(
                 "No data found in the database.", "Error", wx.OK | wx.ICON_ERROR
@@ -102,9 +103,13 @@ class MainPanel(wx.Panel):
                 return  # the user changed their mind
 
             # Proceed loading the file chosen by the user
-            pathname = fileDialog.GetPath()
+            pathname: str = fileDialog.GetPath()
             try:
-                logic.load_schedule_from_file(pathname)
+                #TODO: load scheudle now returns a dict of Teacher lists. Need another function to handle these into the DB
+                results: dict[str, list[Teacher]] = logic.load_schedule_from_file(pathname)
+                logic.handle_new_teachers(results["new_teachers"])
+                logic.handle_updated_teachers(results["updated_teachers"])
+                logic.handle_inactive_teachers(results["inactive_teachers"])
             except IOError:
                 wx.LogError("Cannot open file '%s'." % pathname)
                 return
@@ -256,9 +261,16 @@ class OnCallPanel(wx.Panel):
         table = CustomGridTable(data)
         data_grid.SetTable(table, takeOwnership=True)
 
+        ok_button = wx.Button(self, label="OK")
+        ok_button.Bind(wx.EVT_BUTTON, self.save_schedule)
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(data_grid, 1, wx.EXPAND | wx.ALL, 10)
+        sizer.Add(ok_button, 0, wx.ALL | wx.ALIGN_RIGHT, 10)
         self.SetSizer(sizer)
+    
+    def save_schedule(self, event):
+        logic.save_oncall_schedule(self.schedule.get_schedule())
+        self.parent.Close()    
 
 
 def darken_colour(colour, factor=0.9):
@@ -272,3 +284,4 @@ def darken_colour(colour, factor=0.9):
 if __name__ == "__main__":
     app = MyApp()
     app.MainLoop()
+

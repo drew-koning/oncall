@@ -1,70 +1,19 @@
-# Import necessary modules
-import sqlite3
-import pathlib
+import oncall.db_config as db_config
 import polars as pl
+from oncall.helper_classes import TeacherList, Teacher
 from datetime import datetime, timedelta, date
 from typing import List, Union
 
 
-def initializeDB() -> None:
-    """Initialize the SQLite database and create necessary tables."""
-    # Connect to the SQLite database (or create it if it doesn't exist)
-    if not pathlib.Path("oncall.db").exists():
-        # Create the database file
-        conn = sqlite3.connect("oncall.db")
-        cursor = conn.cursor()
-        # Create a table for teachers if it doesn't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teachers (
-                teacher_id INTEGER PRIMARY KEY,
-                teacher_name TEXT NOT NULL,
-                period1 TEXT,
-                period2 TEXT,
-                period3 TEXT,
-                period4 TEXT,
-                available INTEGER DEFAULT NULL,
-                active INTEGER DEFAULT 1
-            )
-        """)
-        # Create a table for on-call schedules if it doesn't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS oncall_schedule (
-                id INTEGER PRIMARY KEY,
-                date TEXT NOT NULL,
-                teacher_id INTEGER,
-                year TEXT NOT NULL,
-                period TEXT NOT NULL,
-                FOREIGN KEY (teacher_id) REFERENCES teachers (id)
-            )
-        """)
-        # Create a table for unfilled absences if it doesn't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS unfilled_absences (
-                id INTEGER PRIMARY KEY,
-                date TEXT NOT NULL,
-                teacher_id INTEGER,
-                period1 INTEGER,
-                period2 INTEGER,
-                period3 INTEGER,
-                period4 INTEGER,
-                FOREIGN KEY (teacher_id) REFERENCES teachers (id)
-            )
-        """)
-        # Commit the changes and close the connection
-        conn.commit()
-        conn.close()
-
-
-def load_teacher_list_from_db():
+def load_teacher_list_from_db() -> TeacherList:
     """Load the teacher list from the SQLite database."""
-    from oncall.helper_classes import TeacherList, Teacher
-
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM teachers")
-        rows = cursor.fetchall()
+    query: str = "SELECT * FROM teachers"
+    paramaters: tuple = ()
+    result = db_config.execute_query(query, paramaters)
+    if result.success:
         teacher_list = TeacherList()
-        for row in rows:
+        for row in result.data:
+            """Create a Teacher object from the row data and add it to the TeacherList."""
             teacher = Teacher(
                 id=row[0],
                 name=row[1],
@@ -74,16 +23,16 @@ def load_teacher_list_from_db():
                 period4=row[5],
             )
             teacher_list.add_teacher(teacher)
+    else:
+        raise Exception("Failed to load teacher list from database.")
     return teacher_list
 
 
-def get_absences_from_db(date):
+def get_absences_from_db(date: str) -> list:
     """grab the currently active teacher list with all absences for the provided date in the
     following format teaher id, teacher name, period 1, period 2, period 3, period 4"""
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-
-        query = """
+    
+    query: str = """
         SELECT 
             teachers.teacher_id, 
             teachers.teacher_name, 
@@ -97,9 +46,9 @@ def get_absences_from_db(date):
         ) ua ON teachers.teacher_id = ua.teacher_id
         WHERE teachers.active = 1
         """
-        cursor.execute(query, (date,))
-
-        data = cursor.fetchall()
+    params: tuple[str] =  (date,)
+    result: db_config.Result = db_config.execute_query(query, params)
+    if result.success:
         return [
             [
                 row[0],
@@ -110,93 +59,131 @@ def get_absences_from_db(date):
                 bool(row[5]),
                 all(row[2:]),
             ]
-            for row in data
+            for row in result.data
         ]
+    else:
+        raise Exception("Failed to load absences from database.")
 
 
-def load_schedule_from_file(file_path: str) -> None:
+def load_schedule_from_file(file_path: str) -> dict[str, list[Teacher]]:
     """Load a schedule from a file."""
-    from oncall.helper_classes import Teacher
+    # Read the schedule from the provided file path
+    schedule: pl.DataFrame = pl.read_excel(file_path)
+    # setup and execute the query to check if the teachers already exist in the database
+    query: str = "SELECT teacher_name FROM teachers"
+    params: tuple = ()
+    result = db_config.execute_query(query, params)
 
-    schedule = pl.read_excel(file_path)
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-
-        # TODO Get current teacher list, if teacher exists, update their periods, else add them. teachers not in the new schedule, mark as inactive
-        cursor.execute("SELECT teacher_name FROM teachers")
-        existing_teachers = cursor.fetchall()
-        existing_teachers = [teacher[0] for teacher in existing_teachers]
-
+    #setup teacher lists
+    update_teachers: list = []
+    new_teachers: list = []
+        
+    if result.success:
+        existing_teachers: list = [teacher[0] for teacher in result.data]
+        # if teacher exists: add to  update_teachers else add to new_teachers, 
         for row in schedule.iter_rows():
-            # Assuming the schedule has columns 'name', 'period1', 'period2', 'lunch', 'period3', 'period4'
-            if row[0] and row[0] not in existing_teachers:
-                # Create a new teacher object and add it to the database
-                teacher = Teacher(
+            if row[0]:
+                teacher: Teacher = Teacher(
                     name=row[0],
                     period1=row[1],
                     period2=row[2],
                     period3=row[4],
                     period4=row[5],
                 )
-                cursor.execute(
-                    """
-                    INSERT INTO teachers (teacher_name, period1, period2, period3, period4, available)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        teacher.name,
-                        teacher.period1,
-                        teacher.period2,
-                        teacher.period3,
-                        teacher.period4,
-                        teacher.find_available_period(),
-                    ),
-                )
-        conn.commit()
-    return
+                if teacher.name in existing_teachers:
+                    # If the teacher already exists, add to update_teachers
+                    update_teachers.append(teacher)
+                else:
+                    # If the teacher does not exist, add to new_teachers
+                    new_teachers.append(teacher)
+        updated_teacher_names: list[str] = [x.name for x in update_teachers]
+        inactive_teachers: list[Teacher] = [Teacher(name) for name in existing_teachers if name not in updated_teacher_names]
+    else:
+        raise Exception("Failed to load existing teachers from database.")  
+    return {
+        "updated_teachers": update_teachers,
+        "new_teachers": new_teachers,
+        "inactive_teachers": inactive_teachers,
+    }
+
+def handle_new_teachers(new_teachers: List[Teacher]) -> None:
+    """Handle new teachers by adding them to the database."""
+    query: str = """
+        INSERT INTO teachers (teacher_name, period1, period2, period3, period4)
+        VALUES (?, ?, ?, ?, ?)
+    """
+    params: List[tuple] = [
+        (teacher.name, teacher.period1, teacher.period2, teacher.period3, teacher.period4)
+        for teacher in new_teachers
+    ]
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to add new teachers to the database.")
+    
+def handle_updated_teachers(updated_teachers: List[Teacher]) -> None:
+    """Handle updated teachers by updating their information in the database."""
+    query: str = """
+        UPDATE teachers
+        SET period1 = ?, period2 = ?, period3 = ?, period4 = ?
+        WHERE teacher_name = ?
+    """
+    params: List[tuple] = [
+        (teacher.period1, teacher.period2, teacher.period3, teacher.period4, teacher.name)
+        for teacher in updated_teachers
+    ]
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to update teachers in the database.")
+    
+def handle_inactive_teachers(inactive_teachers: List[Teacher]) -> None:
+    """Handle inactive teachers by deactivating them in the database."""
+    query: str = """
+        UPDATE teachers
+        SET active = 0
+        WHERE teacher_name = ?
+    """
+    params: List[tuple] = [(teacher.name,) for teacher in inactive_teachers]
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to deactivate teachers in the database.")
 
 
 def save_absences_to_db(
     date: str, teacher_absences: List[Union[str, int, bool]]
-) -> int:
+) -> None:
     """Save the absences to the database."""
-    try:
-        with sqlite3.connect("oncall.db") as conn:
-            cursor = conn.cursor()
-            # clear any previous entries before re-saving
-            try:
-                cursor.execute("DELETE FROM unfilled_absences WHERE date = ?", (date,))
-            except sqlite3.IntegrityError:
-                return 1
-            for absence in teacher_absences:
-                if isinstance(absence, (list, tuple)) and len(absence) == 7:
-                    (
-                        teacher_id,
-                        _teacher_name,
-                        period1,
-                        period2,
-                        period3,
-                        period4,
-                        _allday,
-                    ) = absence
-                    cursor.execute(
-                        """
-                        INSERT INTO unfilled_absences (date, teacher_id, period1, period2, period3, period4)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                        (date, teacher_id, period1, period2, period3, period4),
-                    )
-            conn.commit()
-            return 0
-    except Exception:
-        return 1
+    query: str = "DELETE FROM unfilled_absences WHERE date = ?"
+    params: tuple = (date,)
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to clear existing absences for the date.")
+    
+    params2: List[tuple] = []
+    for absence in teacher_absences:
+        if isinstance(absence, (list, tuple)) and len(absence) == 7:
+            params2.append(
+                (
+                    date,
+                    absence[0],  # teacher_id
+                    absence[2],  # period1
+                    absence[3],  # period2
+                    absence[4],  # period3
+                    absence[5],  # period4
+                )
+            )
+           
+    query2: str = """INSERT INTO unfilled_absences (date, teacher_id, period1, period2, period3, period4)
+                        VALUES (?, ?, ?, ?, ?, ?)"""
+    result2: db_config.Result = db_config.execute_query(query2, params2)
+    if not result2.success:
+        raise Exception("Failed to save absences to the database.")
+
 
 
 def get_available_teachers(date: str) -> List[str]:
     """Get a list of teachers from the database who for the current day, don't have an absence"""
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-        statement = """
+
+    query: str = """
         SELECT 
           * 
         FROM 
@@ -210,31 +197,33 @@ def get_available_teachers(date: str) -> List[str]:
             WHERE 
               date = ?
             AND
-              period1 = 1
+              (period1 = 1
             OR
               period2 = 1
             OR 
               period3 = 1
             OR 
-              period4 =1
+              period4 =1)
           )"""
-        cursor.execute(statement, (date,))
-        data = cursor.fetchall()
-    return data
+    params: tuple[str] = (date,)
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to load available teachers from database.")
+    return result.data
 
 
 def current_week(day: str) -> list[str]:
     """Get the week range for the selected day (Sunday to Saturday)"""
-    date_day = datetime.strptime(day, "%Y%m%d")
-    weekend = 5 - date_day.weekday()
+    date_day: datetime = datetime.strptime(day, "%Y%m%d")
+    weekend: int = 5 - date_day.weekday()
     if weekend < 0:
-        weekend = 6
-    weekstart = date_day.weekday() * -1 - 1
+        weekend: int = 6
+    weekstart: int = date_day.weekday() * -1 - 1
     if weekstart == -7:
-        weekstart = 0
-    weekend = (date_day + timedelta(weekend)).strftime("%Y%m%d")
-    weekstart = (date_day + timedelta(weekstart)).strftime("%Y%m%d")
-    return [weekstart, weekend]
+        weekstart: int = 0
+    weekend_date: str = (date_day + timedelta(weekend)).strftime("%Y%m%d")
+    weekstart_date: str = (date_day + timedelta(weekstart)).strftime("%Y%m%d")
+    return [weekstart_date, weekend_date]
 
 
 def get_school_year(given_date: str) -> str:
@@ -244,39 +233,43 @@ def get_school_year(given_date: str) -> str:
     """
     if len(given_date) != 8:
         raise ValueError("Date not provided in the proper format")
-    y, m, d = given_date[:4], given_date[4:6], given_date[6:]
+    y: str = given_date[:4] 
+    m: str = given_date[4:6]
+    d: str = given_date[6:]
     try:
-        newdate = date(int(y), int(m), int(d))
+        newdate: date = date(int(y), int(m), int(d))
     except Exception:
-        raise ValueError("Date not provided int he proper format")
+        raise ValueError("Date not provided in the proper format")
     if newdate >= date(newdate.year, 8, 20):
-        start_year = newdate.year
+        start_year: int = newdate.year
     else:
-        start_year = newdate.year - 1
+        start_year: int = newdate.year - 1
 
-    end_year = start_year + 1
+    end_year: int = start_year + 1
     return f"{start_year}/{end_year}"
 
 
 def split_available_teachers(available_teachers: list) -> list[list]:
     """Separate teachers into groups by which period they are available"""
-    period1 = [x for x in available_teachers if x[6] == 1]
-    period2 = [x for x in available_teachers if x[6] == 2]
-    period3 = [x for x in available_teachers if x[6] == 3]
-    period4 = [x for x in available_teachers if x[6] == 4]
+    period1: list[list] = [x for x in available_teachers if x[6] == 1]
+    period2: list[list] = [x for x in available_teachers if x[6] == 2]
+    period3: list[list] = [x for x in available_teachers if x[6] == 3]
+    period4: list[list] = [x for x in available_teachers if x[6] == 4]
     return [period1, period2, period3, period4]
 
 
 def get_unfilled_absences(date: str) -> list:
     """Returns a list of all unfilled absences listed for the current day"""
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-        # obtain the unfilled absences for the date provided
-        try:
-            cursor.execute("SELECT * FROM unfilled_absences WHERE date = ?", (date,))
-        except sqlite3.IntegrityError:
-            return []
-        return cursor.fetchall()
+    query: str = "SELECT * FROM unfilled_absences WHERE date = ?"
+    params: tuple[str] = (date,)
+    result: db_config.Result = db_config.execute_query(query, params)
+    if result.success:
+        return [
+            [row[0], row[1], row[2], row[3], row[4], row[5], row[6]]
+            for row in result.data
+        ]
+    else:
+        raise Exception("Failed to load unfilled absences from database.")
 
 
 def add_names(data: list, lookup: dict) -> list:
@@ -286,10 +279,65 @@ def add_names(data: list, lookup: dict) -> list:
     return data
 
 
-def get_teacher_lookup() -> dict:
+def get_teacher_lookup() -> dict[int, str]:
     """Get a dictionary of teacher names and their ids"""
-    with sqlite3.connect("oncall.db") as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT teacher_id, teacher_name FROM teachers")
-        data = cursor.fetchall()
-    return {row[0]: row[1] for row in data}
+    query: str = "SELECT teacher_id, teacher_name FROM teachers"
+    result: db_config.Result = db_config.execute_query(query)
+    if not result.success:
+        raise Exception("Failed to load teacher lookup from database.")
+    # Return a dictionary mapping teacher_id to teacher_name
+    return {row[0]: row[1] for row in result.data}
+   
+
+def get_oncall_totals(year: str) -> list[list[str | int]]:
+    """Get the total number of on-calls for each teacher in the given year."""
+    query: str = """SELECT 
+                teachers.teacher_name, 
+                COUNT(oncall_schedule.id) AS total_oncalls
+            FROM 
+                teachers
+            LEFT JOIN 
+                oncall_schedule ON teachers.teacher_id = oncall_schedule.teacher_id
+            WHERE 
+                oncall_schedule.year = ?
+            GROUP BY 
+                teachers.teacher_name
+        """
+    params: tuple[str] = (year,)
+    result: db_config.Result = db_config.execute_query(query, params)
+    if not result.success:
+        raise Exception("Failed to load on-call totals from database.")
+    return [list(row) for row in result.data]
+
+
+def save_oncall_schedule(schedule: list) -> None:
+    """Save an on-call schedule entry to the database. overwrite existing entries.
+    
+    The schedule should be a list of lists, where each inner list contains:
+    [teacher_id: int, year: str, date: str, period: str, half: str]
+    """
+    date: str = schedule[0][2]  # Assuming the first entry has the date
+    query1: str = "DELETE FROM oncall_schedule WHERE date = ?"
+    params1: tuple[str] = (date,)
+    result1: db_config.Result = db_config.execute_query(query1, params1)
+    if not result1.success:
+        raise Exception("Failed to clear existing on-call schedule for the date.")
+        # Insert new entries into the on-call schedule
+    
+    if not schedule:
+        raise Exception("No schedule provided") 
+    
+    query2: str = """
+                INSERT INTO oncall_schedule (teacher_id, year, date, period, half)
+                VALUES (?, ?, ?, ?, ?)
+            """
+    params2: List[tuple[str | int, str | int, str | int, str | int, str | int]] = []
+    for oncall in schedule:
+            params2.append((oncall[0],
+                oncall[1],
+                oncall[2],
+                oncall[3],
+                oncall[4]))
+    result2: db_config.Result = db_config.execute_query(query2, params2)
+    if not result2.success:
+        raise Exception("Failed to save on-call schedule to the database.")
