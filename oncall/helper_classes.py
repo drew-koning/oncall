@@ -49,7 +49,7 @@ class Teacher:
                 return None
         elif periodList.count(None) > 1:
             # When there is more than one non-working period, the teacher isn't full time
-            # Find the first non-None period and attach the aviable period to the other side
+            # Find the first non-None period and attach the available period to the other side
             # of the either AM or PM block of the day
             workingPeriod = None
             for i in range(len(periodList)):
@@ -82,15 +82,6 @@ class Teacher:
                 return None
         else:
             return None
-
-    def deactivate(self):
-        """Deactivate the teacher."""
-        self.available = None
-        self.period1 = None
-        self.period2 = None
-        self.period3 = None
-        self.period4 = None
-        self.active = False
 
     def __repr__(self):
         return f"Teacher(name={self.name}: Free period={self.available})"
@@ -152,6 +143,10 @@ class OnCallSchedule:
         self.schedule = []
         self.date = date
         self.year = logic.get_school_year(date)
+        # find all of the teachers who do not have an unfilled absence for the day
+        # split those teachers into groups of which period they are available
+        # TODO attach total oncalls for year and oncalls for the week to the teachers as well
+        ### there is a maximum per week and per year that should be respected.
         self.available_teachers = logic.split_available_teachers(
             logic.get_available_teachers(date)
         )

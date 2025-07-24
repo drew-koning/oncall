@@ -179,7 +179,6 @@ def save_absences_to_db(
         raise Exception("Failed to save absences to the database.")
 
 
-
 def get_available_teachers(date: str) -> List[str]:
     """Get a list of teachers from the database who for the current day, don't have an absence"""
 
