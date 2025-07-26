@@ -79,7 +79,10 @@ def load_schedule_from_file(file_path: str) -> dict[str, list[Teacher]]:
     new_teachers: list = []
         
     if result.success:
-        existing_teachers: list = [teacher[0] for teacher in result.data]
+        if result.data:
+            existing_teachers: list = [teacher[0] for teacher in result.data]
+        else:
+            existing_teachers: list = []
         # if teacher exists: add to  update_teachers else add to new_teachers, 
         for row in schedule.iter_rows():
             if row[0]:
@@ -99,6 +102,7 @@ def load_schedule_from_file(file_path: str) -> dict[str, list[Teacher]]:
         updated_teacher_names: list[str] = [x.name for x in update_teachers]
         inactive_teachers: list[Teacher] = [Teacher(name) for name in existing_teachers if name not in updated_teacher_names]
     else:
+        print(result.message)
         raise Exception("Failed to load existing teachers from database.")  
     return {
         "updated_teachers": update_teachers,
@@ -108,6 +112,9 @@ def load_schedule_from_file(file_path: str) -> dict[str, list[Teacher]]:
 
 def handle_new_teachers(new_teachers: List[Teacher]) -> None:
     """Handle new teachers by adding them to the database."""
+    if not new_teachers:
+        return
+
     query: str = """
         INSERT INTO teachers (teacher_name, period1, period2, period3, period4)
         VALUES (?, ?, ?, ?, ?)
@@ -116,6 +123,7 @@ def handle_new_teachers(new_teachers: List[Teacher]) -> None:
         (teacher.name, teacher.period1, teacher.period2, teacher.period3, teacher.period4)
         for teacher in new_teachers
     ]
+    
     result: db_config.Result = db_config.execute_query(query, params)
     if not result.success:
         raise Exception("Failed to add new teachers to the database.")
@@ -137,6 +145,8 @@ def handle_updated_teachers(updated_teachers: List[Teacher]) -> None:
     
 def handle_inactive_teachers(inactive_teachers: List[Teacher]) -> None:
     """Handle inactive teachers by deactivating them in the database."""
+    if not inactive_teachers:
+        return
     query: str = """
         UPDATE teachers
         SET active = 0
@@ -340,3 +350,4 @@ def save_oncall_schedule(schedule: list) -> None:
     result2: db_config.Result = db_config.execute_query(query2, params2)
     if not result2.success:
         raise Exception("Failed to save on-call schedule to the database.")
+    

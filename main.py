@@ -257,6 +257,7 @@ class OnCallPanel(wx.Panel):
         self.schedule.schedule_oncalls()
         lookup = logic.get_teacher_lookup()
         data = logic.add_names(self.schedule.get_schedule(), lookup)
+        print(data)
         data_grid = grid.Grid(self)
         table = CustomGridTable(data)
         data_grid.SetTable(table, takeOwnership=True)

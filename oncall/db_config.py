@@ -90,7 +90,8 @@ def execute_query(query: str, params: tuple | list[tuple] = ()) -> Result:
     """Execute a single SQL query with parameters."""
     with DatabaseConnection() as (conn, cursor):
         try:
-            if isinstance(params[0], (list,tuple) ):
+
+            if len(params) > 1:
                 cursor.executemany(query, params)
             else:
                 cursor.execute(query, params)

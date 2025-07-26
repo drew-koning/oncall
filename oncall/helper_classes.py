@@ -116,8 +116,9 @@ class TeacherList:
 
 class OnCall:
     def __init__(
-        self, teacher_id: int, date: str, year: str, period: str, half: str
+        self, absent_teacher_id, teacher_id: int, date: str, year: str, period: str, half: str
     ) -> None:
+        self.absent_teacher_id = absent_teacher_id
         self.teacher_id = teacher_id
         self.date = date
         self.year = year
@@ -166,6 +167,10 @@ class OnCallSchedule:
             return 1
 
     def schedule_oncalls(self) -> int:
+        """ Create a preliminary schedule of on calls to cover the unfilled absences"""
+        #pull the teachers out of the database to be able to reference if the absent period
+        #has a corresponsing class that period to be covered
+        teacher_list = logic.load_teacher_list_from_db()
         for (
             id,
             date,
@@ -175,25 +180,32 @@ class OnCallSchedule:
             period3,
             period4,
         ) in self.unfilled_absences:
-            if period1:
-                self.apply_oncall(1, "1st")
-                self.apply_oncall(1, "2nd")
-            if period2:
-                self.apply_oncall(2, "1st")
-                self.apply_oncall(2, "2nd")
-            if period3:
-                self.apply_oncall(3, "1st")
-                self.apply_oncall(3, "2nd")
-            if period4:
-                self.apply_oncall(4, "1st")
-                self.apply_oncall(4, "2nd")
+            current_teacher: Teacher = Teacher(None)
+            for teacher in teacher_list.teachers:
+                if teacher.id == teacher_id:
+                    current_teacher: Teacher = teacher
+                    break
+            if not current_teacher.name:
+                raise Exception
+            if period1 and current_teacher.period1:
+                self.apply_oncall(teacher_id, 1, "1st")
+                self.apply_oncall(teacher_id, 1, "2nd")
+            if period2 and current_teacher.period2:
+                self.apply_oncall(teacher_id, 2, "1st")
+                self.apply_oncall(teacher_id, 2, "2nd")
+            if period3 and current_teacher.period3:
+                self.apply_oncall(teacher_id, 3, "1st")
+                self.apply_oncall(teacher_id, 3, "2nd")
+            if period4 and current_teacher.period4:
+                self.apply_oncall(teacher_id, 4, "1st")
+                self.apply_oncall(teacher_id, 4, "2nd")
         return 0
 
-    def apply_oncall(self, period, half):
+    def apply_oncall(self, absent_teacher, period, half):
         if len(self.available_teachers[period - 1]) > 0:
             teacher = self.available_teachers[period - 1].pop(0)
             self.add_oncall(
-                OnCall(teacher[0], self.date, self.year, f"period{period}", half)
+                OnCall(absent_teacher, teacher[0], self.date, self.year, f"period{period}", half)
             )
             return 0
         return 1
@@ -201,7 +213,7 @@ class OnCallSchedule:
     def get_schedule(self) -> list:
         """Get the schedule in a format suitable for display."""
         # Convert the schedule to a list of lists for display
-        return [[x.teacher_id, x.year, x.date, x.period, x.half] for x in self.schedule]
+        return [[x.absent_teacher_id, x.teacher_id, x.year, x.date, x.period, x.half] for x in self.schedule]
 
 
 class UnfilledAbsences:
