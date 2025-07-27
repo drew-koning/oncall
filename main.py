@@ -110,9 +110,13 @@ class MainPanel(wx.Panel):
                 logic.handle_new_teachers(results["new_teachers"])
                 logic.handle_updated_teachers(results["updated_teachers"])
                 logic.handle_inactive_teachers(results["inactive_teachers"])
+                wx.MessageBox(f"New Teachers {results['new_teachers']}\
+                              \n Updated Teachs: {results['updated_teachers']}\
+                              \n inactive Teachers: {results['inactive_teachers']}")
             except IOError:
                 wx.LogError("Cannot open file '%s'." % pathname)
                 return
+            
 
     def on_show_teacher_list(self, event):
         """Show the teacher list."""

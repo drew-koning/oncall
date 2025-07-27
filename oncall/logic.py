@@ -130,6 +130,8 @@ def handle_new_teachers(new_teachers: List[Teacher]) -> None:
     
 def handle_updated_teachers(updated_teachers: List[Teacher]) -> None:
     """Handle updated teachers by updating their information in the database."""
+    if not updated_teachers:
+        return
     query: str = """
         UPDATE teachers
         SET period1 = ?, period2 = ?, period3 = ?, period4 = ?
